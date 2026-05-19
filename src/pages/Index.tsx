@@ -503,10 +503,15 @@ export default function Index() {
                   ))}
                 </div>
 
-                <button className="btn-neon w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                <a
+                  href={`https://t.me/HellwayYT?text=${encodeURIComponent(`Привет! Хочу купить тариф ${rate.id} за ${rate.price}₽/мес.\n\nПроцессор: ${rate.cpu}\nПамять: ${rate.ram}\nХранилище: ${rate.ssd}\n\nПодскажи, как оформить?`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-neon w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2"
+                >
                   <Icon name="ShoppingCart" size={14} />
                   Перейти к покупке
-                </button>
+                </a>
               </div>
             ))}
           </div>
