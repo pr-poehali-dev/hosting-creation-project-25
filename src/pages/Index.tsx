@@ -7,6 +7,7 @@ interface Application {
   username: string;
   email: string;
   name: string;
+  tg: string;
   time: string;
 }
 
@@ -86,14 +87,7 @@ const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
   duration: Math.random() * 4 + 4,
 }));
 
-// ─── Fake live applications ────────────────────────────────────────────────────
-const FAKE_APPS: Application[] = [
-  { id: 1, username: "DarkKnight99", email: "dark@mail.ru", name: "Алексей К.", time: "только что" },
-  { id: 2, username: "xPro_Gaming", email: "xpro@gmail.com", name: "Дмитрий Р.", time: "1 мин назад" },
-  { id: 3, username: "NightWolf228", email: "wolf@yandex.ru", name: "Михаил В.", time: "3 мин назад" },
-  { id: 4, username: "ShadowX_MC", email: "shadow@mail.ru", name: "Иван С.", time: "7 мин назад" },
-  { id: 5, username: "GamerPRO2024", email: "gamer@bk.ru", name: "Олег Т.", time: "12 мин назад" },
-];
+
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function Index() {
@@ -106,9 +100,9 @@ export default function Index() {
   const [promoCode, setPromoCode] = useState("");
   const [promoError, setPromoError] = useState("");
   const [regForm, setRegForm] = useState({ login: "", email: "", pass: "" });
-  const [appForm, setAppForm] = useState({ username: "", email: "", name: "" });
+  const [appForm, setAppForm] = useState({ username: "", email: "", name: "", tg: "" });
   const [appSubmitted, setAppSubmitted] = useState(false);
-  const [applications, setApplications] = useState<Application[]>(FAKE_APPS);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [heroVisible, setHeroVisible] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -119,24 +113,7 @@ export default function Index() {
     setTimeout(() => setHeroVisible(true), 100);
   }, []);
 
-  useEffect(() => {
-    if (!promoUnlocked) return;
-    const names = ["ZeroX", "PurpleHaze", "CyberWolf", "NeonBlade", "PixelPunk"];
-    const interval = setInterval(() => {
-      const newApp: Application = {
-        id: Date.now(),
-        username: names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 999),
-        email: `user${Math.floor(Math.random() * 9999)}@mail.ru`,
-        name:
-          ["Андрей", "Сергей", "Никита", "Артём", "Кирилл"][Math.floor(Math.random() * 5)] +
-          " " +
-          ["К.", "П.", "В.", "С.", "Д."][Math.floor(Math.random() * 5)],
-        time: "только что",
-      };
-      setApplications((prev) => [newApp, ...prev.slice(0, 9)]);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [promoUnlocked]);
+
 
   const showNotif = (msg: string) => {
     setNotification(msg);
@@ -151,26 +128,31 @@ export default function Index() {
   };
 
   const handleAppSubmit = () => {
-    if (!appForm.username || !appForm.email || !appForm.name) return;
+    if (!appForm.username || !appForm.email || !appForm.name || !appForm.tg) return;
     const newApp: Application = {
       id: Date.now(),
       username: appForm.username,
       email: appForm.email,
       name: appForm.name,
-      time: "только что",
+      tg: appForm.tg.startsWith("@") ? appForm.tg : "@" + appForm.tg,
+      time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
     };
-    setApplications((prev) => [newApp, ...prev]);
+    const updated = [newApp, ...applications];
+    setApplications(updated);
+    localStorage.setItem("astrix_applications", JSON.stringify(updated));
     setAppSubmitted(true);
     showNotif("Заявка отправлена! Мы свяжемся с вами.");
     setTimeout(() => {
       setShowAppModal(false);
       setAppSubmitted(false);
-      setAppForm({ username: "", email: "", name: "" });
+      setAppForm({ username: "", email: "", name: "", tg: "" });
     }, 2000);
   };
 
   const handlePromo = () => {
     if (promoCode.trim() === "HellwayYT2012s") {
+      const saved = localStorage.getItem("astrix_applications");
+      if (saved) setApplications(JSON.parse(saved));
       setPromoUnlocked(true);
       setShowPromoModal(false);
       setPromoError("");
@@ -568,36 +550,74 @@ export default function Index() {
             </div>
             <div className="gaming-card rounded-2xl overflow-hidden">
               <div
-                className="px-6 py-3 flex items-center gap-2"
+                className="px-6 py-3 flex items-center justify-between"
                 style={{ background: "rgba(124,58,237,0.15)", borderBottom: "1px solid rgba(168,85,247,0.2)" }}
               >
-                <Icon name="Users" size={14} className="text-purple-500" />
-                <span className="font-rajdhani font-semibold text-purple-300 text-sm uppercase tracking-wider">Последние заявки</span>
+                <div className="flex items-center gap-2">
+                  <Icon name="Users" size={14} className="text-purple-500" />
+                  <span className="font-rajdhani font-semibold text-purple-300 text-sm uppercase tracking-wider">Заявки</span>
+                </div>
+                <span className="font-orbitron font-bold text-purple-400 text-sm">{applications.length} шт.</span>
               </div>
-              <div className="divide-y" style={{ borderColor: "rgba(168,85,247,0.1)" }}>
-                {applications.map((app, i) => (
-                  <div
-                    key={app.id}
-                    className="px-6 py-4 flex items-center gap-4 hover:bg-purple-950/20 transition-colors animate-fade-in-up"
-                    style={{ animationDelay: `${i * 0.05}s` }}
-                  >
+              {applications.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <Icon name="Inbox" size={32} className="text-purple-800 mx-auto mb-3" />
+                  <p className="font-rajdhani text-gray-600 uppercase tracking-wider text-sm">Заявок пока нет</p>
+                </div>
+              ) : (
+                <div className="divide-y" style={{ borderColor: "rgba(168,85,247,0.1)" }}>
+                  {applications.map((app, i) => (
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}
+                      key={app.id}
+                      className="px-6 py-4 hover:bg-purple-950/20 transition-colors animate-fade-in-up"
+                      style={{ animationDelay: `${i * 0.05}s` }}
                     >
-                      <span className="font-orbitron font-bold text-xs text-white">{app.username[0].toUpperCase()}</span>
+                      <div className="flex items-start gap-4">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                          style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)" }}
+                        >
+                          <span className="font-orbitron font-bold text-xs text-white">{app.username[0].toUpperCase()}</span>
+                        </div>
+                        <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-6 gap-y-1">
+                          <div>
+                            <span className="font-rajdhani text-xs text-purple-600 uppercase tracking-wider">ID</span>
+                            <div className="font-exo text-xs text-gray-400">#{String(app.id).slice(-6)}</div>
+                          </div>
+                          <div>
+                            <span className="font-rajdhani text-xs text-purple-600 uppercase tracking-wider">Время</span>
+                            <div className="font-exo text-xs text-gray-400">{app.time}</div>
+                          </div>
+                          <div>
+                            <span className="font-rajdhani text-xs text-purple-600 uppercase tracking-wider">Имя</span>
+                            <div className="font-exo text-sm text-white font-semibold">{app.name}</div>
+                          </div>
+                          <div>
+                            <span className="font-rajdhani text-xs text-purple-600 uppercase tracking-wider">Username</span>
+                            <div className="font-exo text-sm text-purple-300">{app.username}</div>
+                          </div>
+                          <div>
+                            <span className="font-rajdhani text-xs text-purple-600 uppercase tracking-wider">Email</span>
+                            <div className="font-exo text-sm text-gray-300 truncate">{app.email}</div>
+                          </div>
+                          <div>
+                            <span className="font-rajdhani text-xs text-purple-600 uppercase tracking-wider">Telegram</span>
+                            <a
+                              href={`https://t.me/${app.tg.replace("@", "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-exo text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+                            >
+                              {app.tg}
+                              <Icon name="ExternalLink" size={10} />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-rajdhani font-bold text-white">{app.username}</div>
-                      <div className="font-exo text-xs text-gray-500">{app.email}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-exo text-sm text-purple-300">{app.name}</div>
-                      <div className="font-exo text-xs text-gray-600">{app.time}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -768,8 +788,9 @@ export default function Index() {
                 <div className="space-y-4">
                   {[
                     { key: "name", label: "Имя", placeholder: "Ваше имя", type: "text" },
-                    { key: "username", label: "Username", placeholder: "Ваш никнейм", type: "text" },
+                    { key: "username", label: "Username (никнейм)", placeholder: "Ваш игровой ник", type: "text" },
                     { key: "email", label: "Email", placeholder: "email@example.com", type: "email" },
+                    { key: "tg", label: "Telegram", placeholder: "@username", type: "text" },
                   ].map((f) => (
                     <div key={f.key}>
                       <label className="font-rajdhani font-semibold text-sm text-purple-300 uppercase tracking-wider mb-1 block">
