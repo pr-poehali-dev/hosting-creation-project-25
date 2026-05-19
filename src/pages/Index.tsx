@@ -100,6 +100,7 @@ export default function Index() {
   const [promoCode, setPromoCode] = useState("");
   const [promoError, setPromoError] = useState("");
   const [regForm, setRegForm] = useState({ login: "", email: "", pass: "" });
+  const [regErrors, setRegErrors] = useState({ login: "", pass: "" });
   const [appForm, setAppForm] = useState({ username: "", email: "", name: "", tg: "" });
   const [appSubmitted, setAppSubmitted] = useState(false);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -121,7 +122,13 @@ export default function Index() {
   };
 
   const handleRegister = () => {
-    if (!regForm.login || !regForm.email || !regForm.pass) return;
+    const errors = { login: "", pass: "" };
+    if (!regForm.login) errors.login = "Введите логин";
+    else if (regForm.login.length < 8) errors.login = "Минимум 8 символов";
+    if (!regForm.pass) errors.pass = "Введите пароль";
+    else if (regForm.pass.length < 8) errors.pass = "Минимум 8 символов";
+    setRegErrors(errors);
+    if (errors.login || errors.pass || !regForm.email) return;
     setIsRegistered(true);
     setShowRegModal(false);
     showNotif("Регистрация успешна! Добро пожаловать, " + regForm.login);
@@ -708,46 +715,132 @@ export default function Index() {
       {showRegModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay"
-          onClick={() => setShowRegModal(false)}
+          onClick={() => { setShowRegModal(false); setRegErrors({ login: "", pass: "" }); }}
         >
           <div
-            className="gaming-card rounded-2xl p-8 w-full max-w-md animate-scale-in"
-            style={{ border: "1px solid rgba(168,85,247,0.4)" }}
+            className="w-full max-w-md"
+            style={{ animation: "modalDrop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="font-orbitron font-bold text-xl text-white">Регистрация</h3>
-                <p className="font-exo text-gray-500 text-sm mt-1">Создайте аккаунт в ASTRIX</p>
+            {/* Glow ring */}
+            <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(168,85,247,0.25) 0%, transparent 70%)", filter: "blur(20px)" }} />
+            <div
+              className="gaming-card rounded-2xl p-8 relative overflow-hidden"
+              style={{ border: "1px solid rgba(168,85,247,0.5)", boxShadow: "0 0 60px rgba(124,58,237,0.3), 0 40px 80px rgba(0,0,0,0.6)" }}
+            >
+              {/* Top accent line animated */}
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #a855f7, #7c3aed, #a855f7, transparent)", animation: "border-flow 3s linear infinite", backgroundSize: "200% 100%" }} />
+
+              <div className="flex items-center justify-between mb-7">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", boxShadow: "0 0 20px rgba(168,85,247,0.5)" }}>
+                    <Icon name="UserPlus" size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-orbitron font-bold text-xl text-white">Регистрация</h3>
+                    <p className="font-exo text-gray-500 text-xs mt-0.5">Создайте аккаунт в ASTRIX</p>
+                  </div>
+                </div>
+                <button onClick={() => { setShowRegModal(false); setRegErrors({ login: "", pass: "" }); }} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-white hover:bg-purple-900/50 transition-all">
+                  <Icon name="X" size={16} />
+                </button>
               </div>
-              <button onClick={() => setShowRegModal(false)} className="text-gray-600 hover:text-purple-400 transition-colors">
-                <Icon name="X" size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              {[
-                { key: "login", label: "Логин", placeholder: "Ваш логин", type: "text" },
-                { key: "email", label: "Email", placeholder: "email@example.com", type: "email" },
-                { key: "pass", label: "Пароль", placeholder: "••••••••", type: "password" },
-              ].map((f) => (
-                <div key={f.key}>
-                  <label className="font-rajdhani font-semibold text-sm text-purple-300 uppercase tracking-wider mb-1 block">
-                    {f.label}
+
+              <div className="space-y-5">
+                {/* Login field */}
+                <div style={{ animation: "fieldIn 0.4s ease 0.1s both" }}>
+                  <label className="font-rajdhani font-semibold text-xs text-purple-400 uppercase tracking-widest mb-1.5 block flex items-center gap-1">
+                    <Icon name="AtSign" size={11} /> Логин
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Минимум 8 символов"
+                      value={regForm.login}
+                      onChange={(e) => { setRegForm((p) => ({ ...p, login: e.target.value })); setRegErrors((p) => ({ ...p, login: "" })); }}
+                      className="input-gaming w-full px-4 py-3 rounded-xl text-white pr-10"
+                      style={{ borderColor: regErrors.login ? "rgba(239,68,68,0.6)" : regForm.login.length >= 8 ? "rgba(34,197,94,0.5)" : undefined }}
+                    />
+                    {regForm.login.length >= 8 && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Icon name="CheckCircle" size={16} className="text-green-500" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Progress bar */}
+                  <div className="mt-1.5 h-0.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                    <div className="h-full rounded-full transition-all duration-300" style={{
+                      width: `${Math.min(100, (regForm.login.length / 8) * 100)}%`,
+                      background: regForm.login.length >= 8 ? "linear-gradient(90deg,#22c55e,#4ade80)" : "linear-gradient(90deg,#7c3aed,#a855f7)"
+                    }} />
+                  </div>
+                  {regErrors.login && <p className="font-exo text-red-400 text-xs mt-1 flex items-center gap-1"><Icon name="AlertCircle" size={11} />{regErrors.login}</p>}
+                </div>
+
+                {/* Email field */}
+                <div style={{ animation: "fieldIn 0.4s ease 0.2s both" }}>
+                  <label className="font-rajdhani font-semibold text-xs text-purple-400 uppercase tracking-widest mb-1.5 block flex items-center gap-1">
+                    <Icon name="Mail" size={11} /> Email
                   </label>
                   <input
-                    type={f.type}
-                    placeholder={f.placeholder}
-                    value={regForm[f.key as keyof typeof regForm]}
-                    onChange={(e) => setRegForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                    type="email"
+                    placeholder="email@example.com"
+                    value={regForm.email}
+                    onChange={(e) => setRegForm((p) => ({ ...p, email: e.target.value }))}
                     className="input-gaming w-full px-4 py-3 rounded-xl text-white"
                   />
                 </div>
-              ))}
+
+                {/* Password field */}
+                <div style={{ animation: "fieldIn 0.4s ease 0.3s both" }}>
+                  <label className="font-rajdhani font-semibold text-xs text-purple-400 uppercase tracking-widest mb-1.5 block flex items-center gap-1">
+                    <Icon name="Lock" size={11} /> Пароль
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="password"
+                      placeholder="Минимум 8 символов"
+                      value={regForm.pass}
+                      onChange={(e) => { setRegForm((p) => ({ ...p, pass: e.target.value })); setRegErrors((p) => ({ ...p, pass: "" })); }}
+                      className="input-gaming w-full px-4 py-3 rounded-xl text-white pr-10"
+                      style={{ borderColor: regErrors.pass ? "rgba(239,68,68,0.6)" : regForm.pass.length >= 8 ? "rgba(34,197,94,0.5)" : undefined }}
+                    />
+                    {regForm.pass.length >= 8 && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Icon name="CheckCircle" size={16} className="text-green-500" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Strength bar */}
+                  <div className="mt-1.5 flex gap-1">
+                    {[2, 4, 6, 8].map((threshold) => (
+                      <div key={threshold} className="flex-1 h-0.5 rounded-full transition-all duration-300" style={{
+                        background: regForm.pass.length >= threshold
+                          ? threshold <= 2 ? "#ef4444" : threshold <= 4 ? "#f97316" : threshold <= 6 ? "#eab308" : "#22c55e"
+                          : "rgba(255,255,255,0.05)"
+                      }} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between mt-0.5">
+                    <span className="font-exo text-xs" style={{ color: regForm.pass.length === 0 ? "transparent" : regForm.pass.length < 4 ? "#ef4444" : regForm.pass.length < 6 ? "#f97316" : regForm.pass.length < 8 ? "#eab308" : "#22c55e" }}>
+                      {regForm.pass.length === 0 ? "" : regForm.pass.length < 4 ? "Слабый" : regForm.pass.length < 6 ? "Средний" : regForm.pass.length < 8 ? "Хороший" : "Надёжный"}
+                    </span>
+                    <span className="font-exo text-xs text-gray-600">{regForm.pass.length}/8</span>
+                  </div>
+                  {regErrors.pass && <p className="font-exo text-red-400 text-xs mt-1 flex items-center gap-1"><Icon name="AlertCircle" size={11} />{regErrors.pass}</p>}
+                </div>
+              </div>
+
+              <button
+                onClick={handleRegister}
+                className="btn-neon w-full py-3.5 rounded-xl mt-7 flex items-center justify-center gap-2 text-sm relative overflow-hidden group"
+                style={{ animation: "fieldIn 0.4s ease 0.4s both" }}
+              >
+                <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%)" }} />
+                <Icon name="Rocket" size={16} />
+                Создать аккаунт
+              </button>
             </div>
-            <button onClick={handleRegister} className="btn-neon w-full py-3 rounded-xl mt-6 flex items-center justify-center gap-2">
-              <Icon name="UserPlus" size={16} />
-              Зарегистрироваться
-            </button>
           </div>
         </div>
       )}
