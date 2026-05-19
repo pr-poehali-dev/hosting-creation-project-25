@@ -11,6 +11,22 @@ interface Application {
   time: string;
 }
 
+interface ChatMessage {
+  id: number;
+  text: string;
+  from: "user" | "admin";
+  time: string;
+}
+
+interface SupportChat {
+  id: string;
+  tariff: string;
+  price: number;
+  username: string;
+  messages: ChatMessage[];
+  createdAt: string;
+}
+
 // ─── Tariff Data ──────────────────────────────────────────────────────────────
 const deRates = [
   {
@@ -106,13 +122,39 @@ export default function Index() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [heroVisible, setHeroVisible] = useState(false);
+  // Buy modal
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [buyTariff, setBuyTariff] = useState<{ id: string; price: number; cpu: string; ram: string; ssd: string } | null>(null);
+  // Support chat
+  const [showSupportBtn, setShowSupportBtn] = useState(false);
+  const [showSupportChat, setShowSupportChat] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatInput, setChatInput] = useState("");
+  const [chats, setChats] = useState<SupportChat[]>([]);
+  const [activeAdminChat, setActiveAdminChat] = useState<string | null>(null);
+  const [adminInput, setAdminInput] = useState("");
+  const chatBottomRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
   const rates = region === "DE" ? deRates : ruRates;
 
+  const currentChat = chats.find((c) => c.id === chatId) ?? null;
+  const activeChat = chats.find((c) => c.id === activeAdminChat) ?? null;
+
+  const saveChats = (updated: SupportChat[]) => {
+    setChats(updated);
+    localStorage.setItem("astrix_chats", JSON.stringify(updated));
+  };
+
   useEffect(() => {
+    const saved = localStorage.getItem("astrix_chats");
+    if (saved) setChats(JSON.parse(saved));
     setTimeout(() => setHeroVisible(true), 100);
   }, []);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [currentChat?.messages?.length, activeChat?.messages?.length]);
 
 
 
@@ -160,13 +202,77 @@ export default function Index() {
     if (promoCode.trim() === "HellwayYT2012s") {
       const saved = localStorage.getItem("astrix_applications");
       if (saved) setApplications(JSON.parse(saved));
+      const savedChats = localStorage.getItem("astrix_chats");
+      if (savedChats) setChats(JSON.parse(savedChats));
       setPromoUnlocked(true);
       setShowPromoModal(false);
       setPromoError("");
-      showNotif("Промокод активирован! Доступ к заявкам открыт.");
+      showNotif("Промокод активирован! Доступ к панели открыт.");
     } else {
       setPromoError("Неверный промокод. Попробуйте ещё раз.");
     }
+  };
+
+  const openBuyModal = (rate: typeof rates[0]) => {
+    setBuyTariff({ id: rate.id, price: rate.price, cpu: rate.cpu, ram: rate.ram, ssd: rate.ssd });
+    setShowBuyModal(true);
+  };
+
+  const handleOpenSupportChat = () => {
+    if (!buyTariff) return;
+    const id = `chat_${Date.now()}`;
+    const newChat: SupportChat = {
+      id,
+      tariff: buyTariff.id,
+      price: buyTariff.price,
+      username: regForm.login || "Гость",
+      messages: [
+        {
+          id: 1,
+          text: `Привет! Хочу купить тариф **${buyTariff.id}** за ${buyTariff.price}₽/мес. Помогите с оформлением.`,
+          from: "user",
+          time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+        },
+      ],
+      createdAt: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+    };
+    const updated = [newChat, ...chats];
+    saveChats(updated);
+    setChatId(id);
+    setShowBuyModal(false);
+    setShowSupportBtn(true);
+    setShowSupportChat(true);
+    showNotif("Чат с поддержкой открыт!");
+  };
+
+  const handleSendMessage = () => {
+    if (!chatInput.trim() || !chatId) return;
+    const msg: ChatMessage = {
+      id: Date.now(),
+      text: chatInput.trim(),
+      from: "user",
+      time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+    };
+    const updated = chats.map((c) =>
+      c.id === chatId ? { ...c, messages: [...c.messages, msg] } : c
+    );
+    saveChats(updated);
+    setChatInput("");
+  };
+
+  const handleAdminReply = () => {
+    if (!adminInput.trim() || !activeAdminChat) return;
+    const msg: ChatMessage = {
+      id: Date.now(),
+      text: adminInput.trim(),
+      from: "admin",
+      time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+    };
+    const updated = chats.map((c) =>
+      c.id === activeAdminChat ? { ...c, messages: [...c.messages, msg] } : c
+    );
+    saveChats(updated);
+    setAdminInput("");
   };
 
   return (
@@ -263,6 +369,17 @@ export default function Index() {
             <button onClick={() => setShowAppModal(true)} className="btn-outline-neon px-4 py-2 rounded-lg text-sm">
               Заявка
             </button>
+            {showSupportBtn && (
+              <button
+                onClick={() => setShowSupportChat(true)}
+                className="btn-outline-neon px-4 py-2 rounded-lg text-sm flex items-center gap-2 relative"
+                style={{ borderColor: "rgba(34,197,94,0.5)", color: "#4ade80", boxShadow: "0 0 12px rgba(34,197,94,0.2)" }}
+              >
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-ping-slow absolute -top-1 -right-1" />
+                <Icon name="MessageCircle" size={14} />
+                Поддержка
+              </button>
+            )}
             {isRegistered ? (
               <a
                 href="http://2.26.80.222"
@@ -492,15 +609,13 @@ export default function Index() {
                   ))}
                 </div>
 
-                <a
-                  href={`https://t.me/HellwayYT?text=${encodeURIComponent(`Привет! Хочу купить тариф ${rate.id} за ${rate.price}₽/мес.\n\nПроцессор: ${rate.cpu}\nПамять: ${rate.ram}\nХранилище: ${rate.ssd}\n\nПодскажи, как оформить?`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => openBuyModal(rate)}
                   className="btn-neon w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2"
                 >
                   <Icon name="ShoppingCart" size={14} />
                   Перейти к покупке
-                </a>
+                </button>
               </div>
             ))}
           </div>
@@ -626,6 +741,107 @@ export default function Index() {
                 </div>
               )}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── ADMIN SUPPORT CHATS ─────────────────────────────────────────────── */}
+      {promoUnlocked && (
+        <section className="py-10 px-6 relative z-10">
+          <div className="max-w-5xl mx-auto">
+            <div className="purple-line mb-4" />
+            <div className="flex items-center gap-4 mb-6">
+              <h2 className="section-title text-2xl text-white">
+                Чаты <span style={{ color: "#a855f7" }}>поддержки</span>
+              </h2>
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full" style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
+                <div className="live-dot" />
+                <span className="font-rajdhani text-xs text-green-400 font-semibold uppercase tracking-wider">LIVE</span>
+              </div>
+            </div>
+            {chats.length === 0 ? (
+              <div className="gaming-card rounded-2xl px-6 py-10 text-center">
+                <Icon name="MessageCircle" size={32} className="text-purple-800 mx-auto mb-3" />
+                <p className="font-rajdhani text-gray-600 uppercase tracking-wider text-sm">Чатов пока нет</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Chat list */}
+                <div className="gaming-card rounded-2xl overflow-hidden">
+                  <div className="px-4 py-3" style={{ background: "rgba(124,58,237,0.15)", borderBottom: "1px solid rgba(168,85,247,0.2)" }}>
+                    <span className="font-rajdhani font-semibold text-purple-300 text-sm uppercase tracking-wider">Обращения ({chats.length})</span>
+                  </div>
+                  <div className="divide-y" style={{ borderColor: "rgba(168,85,247,0.1)" }}>
+                    {chats.map((chat) => (
+                      <button
+                        key={chat.id}
+                        onClick={() => setActiveAdminChat(chat.id)}
+                        className="w-full px-4 py-3 text-left hover:bg-purple-950/20 transition-colors"
+                        style={{ background: activeAdminChat === chat.id ? "rgba(168,85,247,0.1)" : undefined, borderLeft: activeAdminChat === chat.id ? "2px solid #a855f7" : "2px solid transparent" }}
+                      >
+                        <div className="font-rajdhani font-bold text-white text-sm">{chat.username}</div>
+                        <div className="font-exo text-xs text-purple-400">{chat.tariff}</div>
+                        <div className="font-exo text-xs text-gray-600 mt-0.5">{chat.createdAt} · {chat.messages.length} сообщ.</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Active chat */}
+                <div className="md:col-span-2 gaming-card rounded-2xl overflow-hidden flex flex-col" style={{ minHeight: "360px" }}>
+                  {!activeAdminChat ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="text-center">
+                        <Icon name="MessageCircle" size={28} className="text-purple-800 mx-auto mb-2" />
+                        <p className="font-exo text-gray-600 text-sm">Выберите чат слева</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0" style={{ background: "rgba(124,58,237,0.15)", borderBottom: "1px solid rgba(168,85,247,0.2)" }}>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}>
+                          <span className="font-orbitron font-bold text-xs text-white">{activeChat?.username[0].toUpperCase()}</span>
+                        </div>
+                        <div>
+                          <div className="font-rajdhani font-bold text-white text-sm">{activeChat?.username}</div>
+                          <div className="font-exo text-xs text-purple-400">{activeChat?.tariff} — {activeChat?.price}₽/мес.</div>
+                        </div>
+                      </div>
+                      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2" style={{ maxHeight: "260px" }}>
+                        {activeChat?.messages.map((msg) => (
+                          <div key={msg.id} className={`flex ${msg.from === "admin" ? "justify-end" : "justify-start"}`}>
+                            <div
+                              className="max-w-[80%] px-3 py-2 rounded-xl"
+                              style={msg.from === "admin"
+                                ? { background: "linear-gradient(135deg,#7c3aed,#a855f7)", borderRadius: "12px 12px 2px 12px" }
+                                : { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "12px 12px 12px 2px" }
+                              }
+                            >
+                              <p className="font-exo text-sm text-white">{msg.text}</p>
+                              <div className="font-exo text-xs text-white/40 mt-0.5 text-right">{msg.time}</div>
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={chatBottomRef} />
+                      </div>
+                      <div className="px-3 py-3 flex gap-2 flex-shrink-0" style={{ borderTop: "1px solid rgba(168,85,247,0.15)" }}>
+                        <input
+                          type="text"
+                          placeholder="Ответить клиенту..."
+                          value={adminInput}
+                          onChange={(e) => setAdminInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAdminReply()}
+                          className="input-gaming flex-1 px-3 py-2 rounded-xl text-white text-sm"
+                        />
+                        <button onClick={handleAdminReply} className="btn-neon px-3 py-2 rounded-xl flex-shrink-0">
+                          <Icon name="Send" size={14} />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -908,6 +1124,137 @@ export default function Index() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── BUY CHOICE MODAL ─────────────────────────────────────────────── */}
+      {showBuyModal && buyTariff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay" onClick={() => setShowBuyModal(false)}>
+          <div
+            className="gaming-card rounded-2xl p-8 w-full max-w-sm relative overflow-hidden"
+            style={{ border: "1px solid rgba(168,85,247,0.5)", boxShadow: "0 0 60px rgba(124,58,237,0.3)", animation: "modalDrop 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #a855f7, #7c3aed, #a855f7, transparent)", animation: "border-flow 3s linear infinite", backgroundSize: "200% 100%" }} />
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-orbitron font-bold text-lg text-white">Купить тариф</h3>
+                <p className="font-exo text-purple-400 text-sm mt-0.5">{buyTariff.id} — {buyTariff.price}₽/мес.</p>
+              </div>
+              <button onClick={() => setShowBuyModal(false)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-white hover:bg-purple-900/50 transition-all">
+                <Icon name="X" size={16} />
+              </button>
+            </div>
+            <p className="font-exo text-gray-400 text-sm mb-6">Как вы хотите оформить покупку?</p>
+            <div className="space-y-3">
+              {/* Telegram option */}
+              <a
+                href={`https://t.me/HellwayYT?text=${encodeURIComponent(`Привет! Хочу купить тариф ${buyTariff.id} за ${buyTariff.price}₽/мес.\n\nПроцессор: ${buyTariff.cpu}\nПамять: ${buyTariff.ram}\nХранилище: ${buyTariff.ssd}\n\nПодскажи, как оформить?`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setShowBuyModal(false)}
+                className="flex items-center gap-4 p-4 rounded-xl transition-all group cursor-pointer"
+                style={{ background: "rgba(29,161,242,0.08)", border: "1px solid rgba(29,161,242,0.25)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(29,161,242,0.6)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(29,161,242,0.25)")}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(29,161,242,0.15)" }}>
+                  <Icon name="Send" size={18} className="text-sky-400" />
+                </div>
+                <div>
+                  <div className="font-rajdhani font-bold text-white text-sm">Написать в Telegram</div>
+                  <div className="font-exo text-xs text-gray-500">Открыть чат с @HellwayYT</div>
+                </div>
+                <Icon name="ExternalLink" size={14} className="text-gray-600 ml-auto group-hover:text-sky-400 transition-colors" />
+              </a>
+              {/* Support chat option */}
+              <button
+                onClick={handleOpenSupportChat}
+                className="flex items-center gap-4 p-4 rounded-xl transition-all w-full text-left group"
+                style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.25)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "rgba(168,85,247,0.6)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(168,85,247,0.25)")}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(168,85,247,0.15)" }}>
+                  <Icon name="MessageCircle" size={18} className="text-purple-400" />
+                </div>
+                <div>
+                  <div className="font-rajdhani font-bold text-white text-sm">Написать в поддержку</div>
+                  <div className="font-exo text-xs text-gray-500">Чат с оператором на сайте</div>
+                </div>
+                <div className="flex items-center gap-1 ml-auto">
+                  <div className="w-2 h-2 rounded-full bg-green-400" />
+                  <span className="font-exo text-xs text-green-400">онлайн</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SUPPORT CHAT WINDOW ──────────────────────────────────────────────── */}
+      {showSupportChat && currentChat && (
+        <div
+          className="fixed bottom-6 right-6 z-50 w-80 rounded-2xl overflow-hidden flex flex-col"
+          style={{ height: "460px", background: "rgba(13,13,24,0.97)", border: "1px solid rgba(168,85,247,0.4)", boxShadow: "0 0 50px rgba(124,58,237,0.35)", animation: "modalDrop 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards" }}
+        >
+          {/* Header */}
+          <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0" style={{ background: "rgba(124,58,237,0.2)", borderBottom: "1px solid rgba(168,85,247,0.2)" }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)" }}>
+              <Icon name="Headphones" size={14} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-rajdhani font-bold text-white text-sm">Поддержка Astrix</div>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                <span className="font-exo text-xs text-green-400">онлайн</span>
+              </div>
+            </div>
+            <button onClick={() => setShowSupportChat(false)} className="text-gray-600 hover:text-white transition-colors">
+              <Icon name="Minus" size={16} />
+            </button>
+          </div>
+
+          {/* Tariff info */}
+          <div className="px-4 py-2 flex-shrink-0" style={{ background: "rgba(168,85,247,0.08)", borderBottom: "1px solid rgba(168,85,247,0.1)" }}>
+            <span className="font-exo text-xs text-purple-400">Тариф: </span>
+            <span className="font-rajdhani font-bold text-purple-300 text-xs">{currentChat.tariff} — {currentChat.price}₽/мес.</span>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            {currentChat.messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className="max-w-[75%] px-3 py-2 rounded-xl"
+                  style={msg.from === "user"
+                    ? { background: "linear-gradient(135deg,#7c3aed,#a855f7)", borderRadius: "12px 12px 2px 12px" }
+                    : { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "12px 12px 12px 2px" }
+                  }
+                >
+                  {msg.from === "admin" && <div className="font-rajdhani font-bold text-purple-400 text-xs mb-0.5">Поддержка</div>}
+                  <p className="font-exo text-sm text-white leading-relaxed">{msg.text}</p>
+                  <div className="font-exo text-xs text-white/40 mt-1 text-right">{msg.time}</div>
+                </div>
+              </div>
+            ))}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Input */}
+          <div className="px-3 py-3 flex gap-2 flex-shrink-0" style={{ borderTop: "1px solid rgba(168,85,247,0.15)" }}>
+            <input
+              type="text"
+              placeholder="Сообщение..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+              className="input-gaming flex-1 px-3 py-2 rounded-xl text-white text-sm"
+            />
+            <button onClick={handleSendMessage} className="btn-neon px-3 py-2 rounded-xl flex-shrink-0">
+              <Icon name="Send" size={14} />
+            </button>
           </div>
         </div>
       )}
